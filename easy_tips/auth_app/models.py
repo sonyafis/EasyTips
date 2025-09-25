@@ -38,6 +38,7 @@ class UserData(models.Model):
     def get_username(self):
         """Возвращает идентификатор пользователя"""
         return str(self.uuid)
+UserData.add_to_class('balance', models.DecimalField(max_digits=10, decimal_places=2, default=0))
 
 class Session(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
