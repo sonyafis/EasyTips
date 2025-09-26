@@ -3,11 +3,24 @@ from decimal import Decimal
 from rest_framework import serializers
 from .models import Transaction
 
+
 class TransactionSerializer(serializers.ModelSerializer):
+    created_at_formatted = serializers.SerializerMethodField()
+    transaction_type_display = serializers.SerializerMethodField()
+
     class Meta:
         model = Transaction
-        fields = ['id', 'transaction_type', 'amount', 'status', 'employee_rating',
-                 'comment', 'payment_method', 'created_at']
+        fields = [
+            'id', 'transaction_type', 'transaction_type_display', 'amount',
+            'status', 'employee_rating', 'comment', 'payment_method',
+            'created_at', 'created_at_formatted'
+        ]
+
+    def get_created_at_formatted(self, obj):
+        return obj.created_at.strftime('%d.%m.%Y %H:%M')
+
+    def get_transaction_type_display(self, obj):
+        return dict(Transaction.TRANSACTION_TYPES).get(obj.transaction_type, obj.transaction_type)
 
 class TipPaymentSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('1.00'))

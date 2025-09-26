@@ -8,4 +8,5 @@ urlpatterns = [
     path('tips/withdraw/', views.withdraw_tips, name='withdraw_tips'),
     path('tips/balance/', views.get_balance, name='get_balance'),
     path('tips/history/', views.transaction_history, name='transaction_history'),
+    path('tips/statistics/', views.transaction_statistics, name='transaction_statistics'),
 ]

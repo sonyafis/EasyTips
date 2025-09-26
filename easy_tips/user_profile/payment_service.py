@@ -36,7 +36,7 @@ class PaymentService:
 
     @staticmethod
     def process_tip_payment(user, amount, employee_rating=None, comment=None, payment_method='card'):
-        """Обрабатывает платеж чаевых"""
+        """Processes tip payments"""
         transaction = Transaction.objects.create(
             user=user,
             transaction_type='tip',
@@ -55,9 +55,9 @@ class PaymentService:
 
     @staticmethod
     def process_withdrawal(user, amount, withdraw_type, details):
-        """Обрабатывает вывод средств"""
+        """Processing withdrawals"""
         if user.balance < amount:
-            raise ValueError("Недостаточно средств")
+            raise ValueError("Insufficient funds")
 
         transaction = Transaction.objects.create(
             user=user,

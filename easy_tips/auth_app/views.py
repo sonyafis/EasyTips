@@ -4,11 +4,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.core.cache import cache
 from .services import AuthService
-from .models import UserData, Session
+from .models import Session
 from .serializers import UserDataSerializer
-from .authentication import SessionAuthentication
 from .permissions import IsAuthenticatedUserData
+import re
 
+PHONE_REGEX = re.compile(r'^\+?\d{10,15}$')
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -21,9 +22,16 @@ def send_code(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Очищаем предыдущие попытки
+    if not PHONE_REGEX.match(phone_number):
+        return Response(
+            {'error': 'Invalid phone number format. '
+                      'Use international format, e.g. +1234567890'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
     cache.delete(f"verification_attempts_{phone_number}")
 
+    # Send the code
     AuthService.send_verification_code(phone_number)
 
     return Response({'message': 'Verification code sent'})
@@ -47,13 +55,13 @@ def verify_code(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Получаем или создаем пользователя
+    # Getting or creating a user
     user_data, created = AuthService.get_or_create_user(phone_number)
 
-    # Создаем сессию
+    # Create a session
     session = AuthService.create_session(user_data)
 
-    # Деактивируем предыдущие сессии
+    # Deactivate previous sessions
     Session.objects.filter(
         user_data=user_data,
         is_active=True
@@ -72,14 +80,13 @@ def verify_code(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticatedUserData])  # Используем кастомное разрешение
+@permission_classes([IsAuthenticatedUserData])
 def complete_profile(request):
     """
-    Заполнение профиля нового пользователя
+    Filling out a new user profile
     """
     user_data = request.user
 
-    # Проверяем, что профиль еще не заполнен
     if user_data.is_profile_complete:
         return Response(
             {'error': 'Profile already completed'},
@@ -91,7 +98,6 @@ def complete_profile(request):
     if serializer.is_valid():
         serializer.save()
 
-        # Проверяем, заполнены ли обязательные поля
         is_complete = user_data.check_profile_complete()
 
         return Response({
@@ -105,10 +111,10 @@ def complete_profile(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticatedUserData])  # Используем кастомное разрешение
+@permission_classes([IsAuthenticatedUserData])
 def profile_status(request):
     """
-    Проверка статуса заполнения профиля
+    Checking the profile completion status
     """
     user_data = request.user
     serializer = UserDataSerializer(user_data)
@@ -120,7 +126,7 @@ def profile_status(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticatedUserData])  # Используем кастомное разрешение
+@permission_classes([IsAuthenticatedUserData])
 def logout(request):
     session_id = request.headers.get('X-Session-ID')
     if session_id:
@@ -132,3 +138,19 @@ def logout(request):
             pass
 
     return Response({'message': 'Logged out successfully'})
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def guest_login(request):
+    """
+    Creates a guest session without registration
+    """
+    user, session = AuthService.create_guest_session()
+    return Response({
+        'session_id': str(session.uuid),
+        'user_data': {
+            'uuid': str(user.uuid),
+            'user_type': user.user_type
+        },
+        'expires_at': session.expires_at
+    })
