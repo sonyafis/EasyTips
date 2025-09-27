@@ -83,7 +83,7 @@ def verify_code(request):
         httponly=True,
         secure=False,
         samesite='Lax',
-        max_age=3600
+        max_age=60*60*4
     )
 
     return response
@@ -127,13 +127,6 @@ def profile_status(request):
     Checking the profile completion status
     """
 
-    session_id = request.COOKIES.get('session_id')
-
-    if session_id is not None:
-        print(f'Session id from cookie: {session_id}')
-    else:
-        print(f'Empty session id from cookie!')
-
     user_data = request.user
     serializer = UserDataSerializer(user_data)
 
@@ -147,15 +140,9 @@ def profile_status(request):
 @permission_classes([IsAuthenticatedUserData])
 def logout(request):
 
-
+    # session_id = request.headers.get('X-Session-ID')
     session_id = request.COOKIES.get('session_id')
 
-    if session_id is not None:
-        print(f'Session id from cookie: {session_id}')
-    else:
-        print(f'Empty session id from cookie!')
-
-    session_id = request.headers.get('X-Session-ID')
     if session_id:
         try:
             session = Session.objects.get(uuid=session_id, is_active=True)
@@ -173,7 +160,8 @@ def guest_login(request):
     Creates a guest session without registration
     """
     user, session = AuthService.create_guest_session()
-    return Response({
+
+    response = Response({
         'session_id': str(session.uuid),
         'user_data': {
             'uuid': str(user.uuid),
@@ -181,3 +169,24 @@ def guest_login(request):
         },
         'expires_at': session.expires_at
     })
+    
+    response.set_cookie(
+        'session_id',
+        str(session.uuid),
+        httponly=True,
+        secure=False,
+        samesite='Lax',
+        max_age=60*60*4
+    )
+
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedUserData])
+def renew_auth(request):
+    """
+    Checking the auth status
+    """
+
+    return Response(status=status.HTTP_200_OK)

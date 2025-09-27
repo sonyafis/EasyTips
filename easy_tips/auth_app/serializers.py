@@ -53,13 +53,13 @@ class UserDataSerializer(serializers.ModelSerializer):
             )
         return value
 
-    def validate(self, attrs):
-        name = attrs.get('name') or (self.instance.name if self.instance else None)
-        email = attrs.get('email') or (self.instance.email if self.instance else None)
+    # def validate(self, attrs):
+    #     name = attrs.get('name') or (self.instance.name if self.instance else None)
+    #     email = attrs.get('email') or (self.instance.email if self.instance else None)
 
-        if name and not email:
-            raise serializers.ValidationError({
-                'email': "If a name is specified, you must also indicate an email."
-            })
+    #     if name and not email:
+    #         raise serializers.ValidationError({
+    #             'email': "If a name is specified, you must also indicate an email."
+    #         })
 
-        return attrs
+    #     return attrs
