@@ -68,7 +68,17 @@ def verify_code(request):
         'profile_complete': user_data.is_profile_complete
     }
 
-    return Response(response_data)
+    response = Response(response_data)
+    response.set_cookie(
+        'session_id',
+        str(session.uuid),
+        httponly=True,
+        secure=False,
+        samesite='Lax',
+        max_age=3600
+    )
+
+    return response
 
 
 @api_view(['POST'])
@@ -110,6 +120,14 @@ def profile_status(request):
     """
     Проверка статуса заполнения профиля
     """
+
+    session_id = request.COOKIES.get('session_id')
+
+    if session_id is not None:
+        print(f'Session id from cookie: {session_id}')
+    else:
+        print(f'Empty session id from cookie!')
+
     user_data = request.user
     serializer = UserDataSerializer(user_data)
 
@@ -122,6 +140,15 @@ def profile_status(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedUserData])  # Используем кастомное разрешение
 def logout(request):
+
+
+    session_id = request.COOKIES.get('session_id')
+
+    if session_id is not None:
+        print(f'Session id from cookie: {session_id}')
+    else:
+        print(f'Empty session id from cookie!')
+
     session_id = request.headers.get('X-Session-ID')
     if session_id:
         try:
