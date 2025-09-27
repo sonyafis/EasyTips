@@ -8,52 +8,86 @@ from .models import UserData, Session
 
 class AuthService:
     @staticmethod
-    def generate_verification_code():
+    def generate_verification_code() -> str:
         return str(random.randint(1000, 9999))
 
     @staticmethod
     def _hash_code(code: str) -> str:
-        """Возвращает SHA256-хэш кода (строка в hex)."""
         return hashlib.sha256(code.encode()).hexdigest()
 
     @staticmethod
     def send_verification_code(phone_number: str) -> bool:
+        """Generates a verification code and stores its hash in the cache"""
         code = AuthService.generate_verification_code()
-
-        # ✅ Храним только хэш, не сам код
         code_hash = AuthService._hash_code(code)
         cache.set(f"verification_code_{phone_number}", code_hash, 300)
-
-        # ⚠️ Отправляем только ПОЛНЫЙ код пользователю (не хэш!)
-        # Здесь интеграция с SMS-сервисом (или пока print для теста)
+        # You can integrate the SMS service here
         print(f"Код для {phone_number}: {code}")
         return True
 
     @staticmethod
     def verify_code(phone_number: str, code: str) -> bool:
+        """Checks the entered code against the hash"""
         stored_hash = cache.get(f"verification_code_{phone_number}")
         if not stored_hash:
             return False
-        # ✅ Сравниваем хэш введённого кода с хэшем из кеша
         return stored_hash == AuthService._hash_code(code)
 
     @staticmethod
-    def get_or_create_user(phone_number):
+    def get_or_create_user(phone_number: str, user_type='employee') -> tuple[UserData, bool]:
+        """
+        Gets or creates a user.
+        user_type: 'employee', 'organization', 'guest'
+        """
+        if user_type == 'guest':
+            # New guests are created every time
+            user_data = UserData.objects.create(
+                phone_number=None,
+                user_type='guest',
+                is_profile_complete=False
+            )
+            created = True
+            return user_data, created
+
         try:
             user_data = UserData.objects.get(phone_number=phone_number)
             created = False
-            print(f"👤 Пользователь найден: {user_data.phone_number}")
+            print(f"User found: {user_data.phone_number}")
         except UserData.DoesNotExist:
             user_data = UserData.objects.create(
                 phone_number=phone_number,
-                is_profile_complete=False  # Новый пользователь без профиля
+                is_profile_complete=False,
+                user_type=user_type
             )
             created = True
-            print(f"👤 Создан новый пользователь: {user_data.phone_number}")
+            print(f"New user created: {user_data.phone_number}")
 
         return user_data, created
 
     @staticmethod
-    def create_session(user_data):
-        expires_at = timezone.now() + timedelta(days=30)
-        return Session.objects.create(user_data=user_data, expires_at=expires_at)
+    def create_session(user_data: UserData, session_type: str = 'employee', days: int = 30) -> Session:
+        """
+        A universal method for creating a session for any user type.
+        session_type: 'guest', 'employee', 'organization'
+        days: session expiration
+        """
+        expires_at = timezone.now() + timedelta(days=days)
+        return Session.objects.create(
+            user_data=user_data,
+            expires_at=expires_at,
+            session_type=session_type
+        )
+
+    @staticmethod
+    def create_guest_session() -> tuple[UserData, Session]:
+        guest_user, _ = AuthService.get_or_create_user(phone_number=None, user_type='guest')
+        session = AuthService.create_session(guest_user, session_type='guest', days=7)
+        return guest_user, session
+
+    @staticmethod
+    def create_employee_session(user_data: UserData) -> Session:
+        return AuthService.create_session(user_data, session_type='employee', days=30)
+
+    @staticmethod
+    def create_organization_session(user_data: UserData) -> Session:
+        return AuthService.create_session(user_data, session_type='organization', days=30)

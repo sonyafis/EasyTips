@@ -1,5 +1,5 @@
-from django.utils import timezone
 from rest_framework.authentication import BaseAuthentication
+from django.utils import timezone
 from .models import Session
 
 class SessionAuthentication(BaseAuthentication):
@@ -13,11 +13,12 @@ class SessionAuthentication(BaseAuthentication):
         except Session.DoesNotExist:
             return None
 
-        # Проверка срока действия
+        # Checking expiration date
         if session.expires_at <= timezone.now():
             session.is_active = False
             session.save(update_fields=["is_active"])
             return None
 
         return (session.user_data, None)
+
 

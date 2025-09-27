@@ -57,7 +57,7 @@ ROOT_URLCONF = 'easy_tips.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -135,12 +135,23 @@ STATIC_URL = 'static/'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
+FRONTEND_URL = "https://tips.yoursite.com"
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'auth_app.authentication.SessionAuthentication',
     ],
+}
+
+# Settings for the payment system (stubs)
+PAYMENT_SERVICE = {
+    'API_KEY': 'your_payment_service_api_key',
+    'SECRET_KEY': 'your_secret_key',
+    'WEBHOOK_URL': 'http://localhost:8000/api/auth/tips/webhook/',
+    'SUCCESS_URL': 'http://localhost:8000/success-page',
+    'FAILURE_URL': 'http://localhost:8000/failure-page'
 }
 
 
