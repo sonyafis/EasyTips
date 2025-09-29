@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from auth_app.models import UserData
 
+
 class Transaction(models.Model):
     TRANSACTION_TYPES = [
         ('tip', 'Чаевые'),
