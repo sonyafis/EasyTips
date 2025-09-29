@@ -30,7 +30,8 @@ class PaymentService:
         img_str = base64.b64encode(buffer.getvalue()).decode()
 
         return {
-            "qr_code": f"data:image/png;base64,{img_str}",
+            # "qr_code": f"data:image/png;base64,{img_str}",
+            "qr_code": f"{img_str}",
             "payment_url": payment_url
         }
 
