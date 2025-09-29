@@ -13,22 +13,22 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 
 
-@api_view(['GET', 'PUT'])
-@authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
-def profile(request):
-    user_data = request.user
+# @api_view(['GET', 'PUT'])
+# @authentication_classes([SessionAuthentication])
+# @permission_classes([IsAuthenticated])
+# def profile(request):
+#     user_data = request.user
 
-    if request.method == 'GET':
-        serializer = UserDataSerializer(user_data)
-        return Response(serializer.data)
+#     if request.method == 'GET':
+#         serializer = UserDataSerializer(user_data)
+#         return Response(serializer.data)
 
-    elif request.method == 'PUT':
-        serializer = UserDataSerializer(user_data, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'Profile completed', 'user_data': serializer.data})
-        return Response(serializer.errors, status=400)
+#     elif request.method == 'PUT':
+#         serializer = UserDataSerializer(user_data, data=request.data, partial=True)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response({'message': 'Profile completed', 'user_data': serializer.data})
+#         return Response(serializer.errors, status=400)
 
 
 @api_view(['GET', 'PUT'])
