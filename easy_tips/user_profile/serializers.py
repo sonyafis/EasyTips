@@ -27,6 +27,7 @@ class TipPaymentSerializer(serializers.Serializer):
     employee_rating = serializers.IntegerField(min_value=1, max_value=5, required=False)
     comment = serializers.CharField(required=False, allow_blank=True)
     payment_method = serializers.ChoiceField(choices=['card', 'phone'])
+    employee_user_uid = serializers.UUIDField()
 
 class WithdrawSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('1.00'))

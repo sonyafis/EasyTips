@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from auth_app.authentication import SessionAuthentication
 from auth_app.permissions import IsAuthenticatedUserData
 from auth_app.serializers import UserDataSerializer
+from auth_app.models import UserData
 from .payment_service import PaymentService
 from .serializers import TipPaymentSerializer, WithdrawSerializer, TransactionSerializer
 from django.conf import settings
@@ -57,11 +58,11 @@ def get_qr_code(request):
     """
     Generate a QR code to redirect to the tip amount selection form.
     """
-    amount = request.query_params.get('amount')
-    if not amount:
-        return Response({"error": "amount is required"}, status=400)
+    # amount = request.query_params.get('amount')
+    # if not amount:
+    #     return Response({"error": "amount is required"}, status=400)
 
-    qr_data = PaymentService.generate_qr_code(request.user, amount)
+    qr_data = PaymentService.generate_qr_code(request.user)
     return Response(qr_data)
 
 
@@ -75,9 +76,17 @@ def payment_tips(request):
     if not serializer.is_valid():
         return Response({'error': serializer.errors}, status=400)
 
+
+    try:
+        employee_user_uuid = serializer.validated_data['employee_user_uid']
+        employee = UserData.objects.get(uuid=employee_user_uuid)
+    except UserData.DoesNotExist:
+        # Handle case when object doesn't exist
+        print("User not found")
+
     try:
         transaction = PaymentService.process_tip_payment(
-            user=request.user,
+            user=employee,
             amount=serializer.validated_data['amount'],
             employee_rating=serializer.validated_data.get('employee_rating'),
             comment=serializer.validated_data.get('comment'),
