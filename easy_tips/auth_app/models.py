@@ -14,7 +14,7 @@ class UserData(models.Model):
     email = models.EmailField(blank=True, null=True)
     avatar_url = models.URLField(blank=True, null=True)
     goal = models.TextField(blank=True, null=True)
-    payment_goal = models.CharField(max_length=255, blank=True, null=True)
+    payment_goal = models.DecimalField(max_digits=10,decimal_places=2,blank=True,null=True)
     user_type = models.CharField(
         max_length=20, choices=USER_TYPES, default='employee'
     )
@@ -27,7 +27,7 @@ class UserData(models.Model):
         return f"{self.user_type}: {self.phone_number or 'Guest'} - {self.name}"
 
     def check_profile_complete(self):
-        required_fields = [self.name, self.email]
+        required_fields = []
         self.is_profile_complete = all(required_fields)
         self.save(update_fields=["is_profile_complete"])
         return self.is_profile_complete

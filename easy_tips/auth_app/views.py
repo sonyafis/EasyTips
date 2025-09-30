@@ -94,15 +94,11 @@ def complete_profile(request):
         )
 
     serializer = UserDataSerializer(user_data, data=request.data, partial=True)
-
     if serializer.is_valid():
         serializer.save()
-
-        is_complete = user_data.check_profile_complete()
-
         return Response({
             'success': True,
-            'profile_complete': is_complete,
+            'profile_complete': user_data.is_profile_complete,
             'user_data': serializer.data,
             'message': 'Profile updated successfully'
         })

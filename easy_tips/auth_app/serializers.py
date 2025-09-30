@@ -2,6 +2,9 @@ from rest_framework import serializers
 from .models import UserData
 import re
 
+from .utils import generate_avatar_url, generate_random_name
+
+
 class UserDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserData
@@ -46,20 +49,18 @@ class UserDataSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Please enter a valid email address.")
         return value
 
-    def validate_payment_goal(self, value):
-        if value and len(value) > 255:
-            raise serializers.ValidationError(
-                "The payment purpose cannot exceed 255 characters."
-            )
-        return value
+    def update(self, instance, validated_data):
+        if not validated_data.get("name"):
+            validated_data["name"] = generate_random_name()
 
-    def validate(self, attrs):
-        name = attrs.get('name') or (self.instance.name if self.instance else None)
-        email = attrs.get('email') or (self.instance.email if self.instance else None)
+        instance = super().update(instance, validated_data)
 
-        if name and not email:
-            raise serializers.ValidationError({
-                'email': "If a name is specified, you must also indicate an email."
-            })
+        instance.is_profile_complete = instance.check_profile_complete()
+        if not instance.avatar_url:
+            instance.avatar_url = generate_avatar_url()
+            instance.save(update_fields=["avatar_url"])
 
-        return attrs
+        return instance
+
+
+
