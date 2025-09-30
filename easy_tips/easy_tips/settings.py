@@ -135,7 +135,9 @@ STATIC_URL = 'static/'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
-FRONTEND_URL = "https://tips.yoursite.com"
+# FRONTEND_URL = "https://tips.yoursite.com"
+# FRONTEND_URL = 'http://192.168.0.104:3000'
+FRONTEND_URL = 'https://v0-mobile-orientation-interface.vercel.app'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -156,9 +158,12 @@ PAYMENT_SERVICE = {
 
 
 # CORS settings for React frontend
+
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://192.168.0.104:3000',
+    'https://v0-mobile-orientation-interface.vercel.app'
 ]
 
 CORS_ALLOW_CREDENTIALS = True

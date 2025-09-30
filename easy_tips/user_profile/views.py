@@ -96,7 +96,7 @@ def payment_tips(request):
         return Response({
             'success': True,
             'transaction_id': str(transaction.id),
-            'redirect_url': f"{settings.FRONTEND_URL}/success-page"
+            'redirect_url': f"{settings.FRONTEND_URL}/success_page"
         })
 
     except Exception as e:
@@ -144,6 +144,30 @@ def get_balance(request):
         'balance': float(request.user.balance),
         'currency': 'RUB'
     })
+    
+@api_view(['GET'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticatedUserData])
+def get_employee_profile(request):
+    """Getting employee profile"""
+
+    employee_id = request.GET.get('employee_id')
+
+    if not employee_id:
+        return Response({'error': 'employee_id parameter is required'}, status=400)
+    
+    try:
+        employee = UserData.objects.get(uuid=employee_id)
+        
+        return Response({
+            'employee_id': employee_id,
+            'name': employee.name,
+            'goal': employee.goal
+        })
+    except UserData.DoesNotExist:
+        return Response({'error': 'Employee not found'}, status=404)
+    except ValueError:
+        return Response({'error': 'Invalid UUID format'}, status=400)
 
 
 @api_view(['GET'])

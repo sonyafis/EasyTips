@@ -10,8 +10,8 @@ class PaymentService:
     @staticmethod
     def generate_qr_code(user):
         FRONTEND_URL = getattr(settings, "FRONTEND_URL", "https://tips.yoursite.com")
-        form_page_url = "/payment-form/"  # route React
-        params = {'user_id': str(user.uuid)}
+        form_page_url = "/payment_form/"  # route React
+        params = {'employee_id': str(user.uuid)}
 
         payment_url = f"{FRONTEND_URL}{form_page_url}?{urlencode(params)}"
 
