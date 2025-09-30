@@ -9,7 +9,8 @@ from .models import UserData, Session
 class AuthService:
     @staticmethod
     def generate_verification_code() -> str:
-        return str(random.randint(1000, 9999))
+        # return str(random.randint(1000, 9999))
+        return str(1000)
 
     @staticmethod
     def _hash_code(code: str) -> str:

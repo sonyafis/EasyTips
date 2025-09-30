@@ -27,8 +27,11 @@ SECRET_KEY ='django-insecure-=3#i@nq*f17a)@vo)w%%&3e*z^u6_o_zvt90rem*u%(nkfzrd+'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'web']
-
+allowed_hosts = os.getenv('ALLOWED_HOSTS', '')
+if allowed_hosts:
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts.split(',')]
+else:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'web']
 
 # Application definition
 
@@ -140,7 +143,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # FRONTEND_URL = "https://tips.yoursite.com"
 # FRONTEND_URL = 'http://192.168.0.104:3000'
-FRONTEND_URL = 'https://v0-mobile-orientation-interface.vercel.app'
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://127.0.0.1:3000')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
