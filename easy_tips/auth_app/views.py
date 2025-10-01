@@ -7,6 +7,7 @@ from .services import AuthService
 from .models import Session
 from .serializers import UserDataSerializer
 from .permissions import IsAuthenticatedUserData
+from django.conf import settings
 import re
 
 PHONE_REGEX = re.compile(r'^\+?\d{10,15}$')
@@ -76,7 +77,17 @@ def verify_code(request):
         'profile_complete': user_data.is_profile_complete
     }
 
-    return Response(response_data)
+    response = Response(response_data)
+    response.set_cookie(
+        'session_id',
+        str(session.uuid),
+        httponly=settings.SESSION_COOKIE_HTTPONLY,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite=settings.SESSION_COOKIE_SAMESITE,
+        max_age=settings.SESSION_COOKIE_AGE
+    )
+
+    return response
 
 
 @api_view(['POST'])
@@ -124,7 +135,8 @@ def profile_status(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedUserData])
 def logout(request):
-    session_id = request.headers.get('X-Session-ID')
+    session_id = request.COOKIES.get('session_id')
+
     if session_id:
         try:
             session = Session.objects.get(uuid=session_id, is_active=True)
@@ -133,7 +145,9 @@ def logout(request):
         except Session.DoesNotExist:
             pass
 
-    return Response({'message': 'Logged out successfully'})
+    response = Response({'message': 'Logged out successfully'})
+    response.delete_cookie('session_id')
+    return response
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -142,7 +156,8 @@ def guest_login(request):
     Creates a guest session without registration
     """
     user, session = AuthService.create_guest_session()
-    return Response({
+
+    response = Response({
         'session_id': str(session.uuid),
         'user_data': {
             'uuid': str(user.uuid),
@@ -150,3 +165,24 @@ def guest_login(request):
         },
         'expires_at': session.expires_at
     })
+
+    response.set_cookie(
+        'session_id',
+        str(session.uuid),
+        httponly=settings.SESSION_COOKIE_HTTPONLY,
+        secure=settings.SESSION_COOKIE_SECURE,
+        samesite=settings.SESSION_COOKIE_SAMESITE,
+        max_age=settings.SESSION_COOKIE_AGE
+    )
+
+    return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedUserData])
+def renew_auth(request):
+    """
+    Checking the auth status
+    """
+
+    return Response(status=status.HTTP_200_OK)

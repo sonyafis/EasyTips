@@ -71,7 +71,8 @@ class AuthService:
         session_type: 'guest', 'employee', 'organization'
         days: session expiration
         """
-        expires_at = timezone.now() + timedelta(days=days)
+        now = timezone.now()
+        expires_at = now + timedelta(days=days)
         return Session.objects.create(
             user_data=user_data,
             expires_at=expires_at,
