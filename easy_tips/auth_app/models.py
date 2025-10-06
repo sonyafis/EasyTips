@@ -84,7 +84,6 @@ class Session(models.Model):
         ('employee', 'Сотрудник'),
         ('organization', 'Организация'),
     ]
-
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user_data = models.ForeignKey(UserData, on_delete=models.CASCADE)
 
