@@ -92,3 +92,54 @@ class AuthService:
     @staticmethod
     def create_organization_session(user_data: UserData) -> Session:
         return AuthService.create_session(user_data, session_type='organization', days=30)
+
+    def create_organization_session(user_data: UserData, days: int = 30) -> Session:
+        return AuthService.create_session(user_data, session_type='organization', days=days)
+
+class OrganizationService:
+    @staticmethod
+    def authenticate_organization(login: str, password: str) -> UserData:
+        try:
+            organization = UserData.objects.get(
+                login=login,
+                user_type='organization'
+            )
+            if organization.check_password(password):
+                return organization
+        except UserData.DoesNotExist:
+            pass
+        return None
+
+    @staticmethod
+    def create_employee(organization: UserData, phone_number: str, name: str = None, email: str = None) -> UserData:
+        """Creates an employee for the organization"""
+        employee, created = UserData.objects.get_or_create(
+            phone_number=phone_number,
+            defaults={
+                'user_type': 'employee',
+                'organization': organization,
+                'name': name,
+                'email': email,
+                'is_profile_complete': False
+            }
+        )
+
+        if not created:
+            employee.organization = organization
+            if name:
+                employee.name = name
+            if email:
+                employee.email = email
+            employee.save()
+
+        # We send an SMS with an invitation
+        OrganizationService._send_employee_invitation(employee, organization)
+
+        return employee
+
+    @staticmethod
+    def _send_employee_invitation(employee: UserData, organization: UserData):
+        """Sends an SMS with an invitation to an employee"""
+        # Integrate with your SMS service
+        message = f"You have been added to the organization {organization.name}. Use your phone number to log in."
+        print(f"SMS для {employee.phone_number}: {message}")

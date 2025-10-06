@@ -10,4 +10,11 @@ urlpatterns = [
     # path('organization-register/', views.organization_register),
     path('logout/', views.logout, name='logout'),
     path('renew-auth/', views.renew_auth, name='renew_auth'),
+    path('logout/', views.logout, name='logout'),
+    path('renew-auth/', views.renew_auth, name='renew_auth'),
+    path('organization/register/', views.organization_register, name='organization_register'),
+    path('organization/login/', views.organization_login, name='organization_login'),
+    path('organization/complete-profile/', views.organization_complete_profile, name='organization_complete_profile'),
+    path('organization/add-employee/', views.add_employee, name='add_employee'),
+    path('organization/employees/', views.organization_employees, name='organization_employees')
 ]
