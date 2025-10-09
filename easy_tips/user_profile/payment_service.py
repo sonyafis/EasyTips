@@ -13,7 +13,7 @@ class PaymentService:
     def generate_employee_qr_code(employee_uuid: str):
         """Generates a QR code for the employee that leads to the payment form"""
         FRONTEND_URL = getattr(settings, "FRONTEND_URL", "http://194.87.202.132:3000/")
-        form_url = f"{FRONTEND_URL}/tip-form/?employee_id={employee_uuid}"
+        form_url = f"{FRONTEND_URL}/payment_form/?employee_id={employee_uuid}"
 
         qr = qrcode.QRCode(
             version=1,
@@ -30,7 +30,8 @@ class PaymentService:
         img_str = base64.b64encode(buffer.getvalue()).decode()
 
         return {
-            "qr_code": f"data:image/png;base64,{img_str}",
+            # "qr_code": f"data:image/png;base64,{img_str}",
+            "qr_code": f"{img_str}",
             "payment_url": form_url
         }
 

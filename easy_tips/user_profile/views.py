@@ -38,7 +38,7 @@ def profile(request):
         serializer = UserDataSerializer(user_data)
         return Response(serializer.data)
 
-    elif request.method == 'PUT':
+    elif request.method == 'PUT':   
         serializer = UserDataSerializer(user_data, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -110,15 +110,11 @@ def create_guest_tip_payment(request):
 
         return Response({
             'success': True,
-            'employee': {
-                'uuid': str(employee.uuid),
-                'name': employee.name,
-                'phone_number': employee.phone_number,
-                'avatar_url': employee.avatar_url
-            }
+            'checkout_data': response_serializer.data
         })
-    except UserData.DoesNotExist:
-        return Response({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -211,7 +207,7 @@ def get_employee_profile(request):
         return Response({'error': 'employee_id parameter is required'}, status=400)
     
     try:
-        employee = UserData.objects.get(uuid=employee_id)
+        employee = UserData.objects.get(uuid=employee_id, user_type='employee')
         
         return Response({
             'employee_id': employee_id,
@@ -222,6 +218,26 @@ def get_employee_profile(request):
         return Response({'error': 'Employee not found'}, status=404)
     except ValueError:
         return Response({'error': 'Invalid UUID format'}, status=400)
+    
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_employee_info(request, employee_uuid):
+    """Returns employee information for the payment form (no auth required)"""
+    try:
+        employee = UserData.objects.get(uuid=employee_uuid, user_type='employee')
+        return Response({
+            'success': True,
+            'employee': {
+                'uuid': str(employee.uuid),
+                'name': employee.name,
+                # 'phone_number': employee.phone_number,
+                'goal': employee.goal,
+                'avatar_url': employee.avatar_url
+            }
+        })
+    except UserData.DoesNotExist:
+        return Response({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
 @api_view(['GET'])
