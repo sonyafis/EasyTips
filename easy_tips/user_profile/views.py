@@ -131,9 +131,9 @@ def stripe_webhook(request):
 
     try:
         event = StripeService.verify_webhook_signature(payload, sig_header)
-            'transaction_id': str(transaction.id),
-            'redirect_url': f"{settings.FRONTEND_URL}/success_page"
-        })
+        #     'transaction_id': str(transaction.id),
+        #     'redirect_url': f'{settings.FRONTEND_URL}/success_page'
+        # })
 
     except Exception as e:
         return Response({'error': str(e)}, status=400)

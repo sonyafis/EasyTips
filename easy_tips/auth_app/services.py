@@ -66,7 +66,7 @@ class AuthService:
         return user_data, created
 
     @staticmethod
-    def create_session(user_data: UserData, session_type: str = 'employee', days: int = 30) -> Session:
+    def create_session(user_data, session_type: str = 'employee', days: int = 30) -> Session:
         """
         A universal method for creating a session for any user type.
         session_type: 'guest', 'employee', 'organization'
@@ -90,11 +90,7 @@ class AuthService:
     def create_employee_session(user_data: UserData) -> Session:
         return AuthService.create_session(user_data, session_type='employee', days=30)
 
-    @staticmethod
-    def create_organization_session(user_data: UserData) -> Session:
-        return AuthService.create_session(user_data, session_type='organization', days=30)
-
-    def create_organization_session(user_data: UserData, days: int = 30) -> Session:
+    def create_organization_session(user_data, days: int = 30) -> Session:
         return AuthService.create_session(user_data, session_type='organization', days=days)
 
 class OrganizationService:
