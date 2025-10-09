@@ -55,6 +55,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'auth_app.middleware.RefreshSessionMiddleware'
 ]
 
 ROOT_URLCONF = 'easy_tips.urls'
@@ -162,6 +163,26 @@ PAYMENT_SERVICE = {
     'FAILURE_URL': 'http://localhost:8000/failure-page'
 }
 
+# seconds, session lifetime when extended (e.g. 1 hour)
+SESSION_COOKIE_AGE = 60 * 60
+
+SESSION_COOKIE_NAME = "session_id"
+
+SESSION_COOKIE_SECURE = False  # -> True on HTTPS/production
+
+SESSION_COOKIE_SAMESITE = "Lax"
+
+# how many seconds of remaining time should be considered "needing extension"?
+# if None, we'll extend it on every request (not recommended for heavily loaded systems)
+SESSION_REFRESH_THRESHOLD = 60 * 15
+
+# Stripe Settings
+STRIPE_TEST_MODE = True
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', 'pk_test_51SDnMDHyBFLETxWaBIxoOc7biRTQFk8WxkL8MUZx5jpGpU4juUDydi3VXNXj3D5fQ3dLJktaPv1EVZrIbAZt6L4v00cTeXyY0Y')
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', 'whsec_2A09eN4lrR5NFAs9gINGxuokKgMMd0sD')
+# Currency settings
+DEFAULT_CURRENCY = 'usd'
 
 # CORS settings for React frontend
 

@@ -2,7 +2,6 @@ import uuid
 from django.db import models
 from auth_app.models import UserData
 
-
 class Transaction(models.Model):
     TRANSACTION_TYPES = [
         ('tip', 'Чаевые'),
@@ -25,6 +24,19 @@ class Transaction(models.Model):
     payment_method = models.CharField(max_length=20, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    stripe_payment_intent_id = models.CharField(max_length=255, blank=True, null=True)
+    stripe_transfer_id = models.CharField(max_length=255, blank=True, null=True)
+    stripe_charge_id = models.CharField(max_length=255, blank=True, null=True)
+    guest_session_id = models.CharField(max_length=255, blank=True, null=True)
+    employee = models.ForeignKey(
+        UserData,
+        on_delete=models.CASCADE,
+        related_name='received_tips',
+        null=True,
+        blank=True,
+        help_text="The employee to whom the tip is intended"
+    )
 
     def __str__(self):
         return f"{self.transaction_type} - {self.amount} - {self.status}"
