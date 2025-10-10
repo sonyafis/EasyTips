@@ -118,6 +118,24 @@ def complete_profile(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticatedUserData])
+def change_profile(request):
+    user_data = request.user
+
+    serializer = UserDataSerializer(user_data, data=request.data, partial=True)
+    
+    if serializer.is_valid():
+        serializer.save()
+        return Response({
+            'success': True,
+            'profile_complete': user_data.is_profile_complete,
+            'user_data': serializer.data,
+            'message': 'Profile updated successfully'
+        })
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedUserData])
 def profile_status(request):
