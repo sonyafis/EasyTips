@@ -18,4 +18,5 @@ urlpatterns = [
     path('organization/profile/', views.organization_profile, name='organization_profile'),
     path('organization/add-employee/', views.add_employee, name='add_employee'),
     path('organization/employees/', views.organization_employees, name='organization_employees'),
+    path('debug/cookies/', views.debug_cookies, name='debug_cookies'),
 ]

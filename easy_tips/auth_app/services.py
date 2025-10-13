@@ -1,5 +1,7 @@
 import random
 import hashlib
+
+from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
 from datetime import timedelta
@@ -71,6 +73,7 @@ class AuthService:
         session_type: 'guest', 'employee', 'organization'
         days: session expiration
         """
+        print(f"🆕 Creating {session_type} session for user: {user_data.uuid}")
         now = timezone.now()
         expires_at = now + timedelta(days=days)
         return Session.objects.create(
@@ -143,3 +146,24 @@ class OrganizationService:
         # Integrate with your SMS service
         message = f"You have been added to the organization {organization.name}. Use your phone number to log in."
         print(f"SMS для {employee.phone_number}: {message}")
+
+
+def set_session_cookie(response, session_id):
+    """A generic function for setting the session_id cookie"""
+    response.delete_cookie(
+        'session_id',
+        path='/',
+        domain=None
+    )
+
+    response.set_cookie(
+        'session_id',
+        session_id,
+        httponly=True,
+        secure=getattr(settings, 'SESSION_COOKIE_SECURE', False),
+        samesite=settings.SESSION_COOKIE_SAMESITE,
+        max_age=settings.SESSION_COOKIE_AGE,
+        path='/',
+        domain=None
+    )
+    return response

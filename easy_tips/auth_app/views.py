@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.core.cache import cache
-from .services import AuthService, OrganizationService
+from .services import AuthService, OrganizationService, set_session_cookie
 from .models import Session, UserData
 from .serializers import UserDataSerializer, AddEmployeeSerializer, OrganizationProfileSerializer, \
     OrganizationLoginSerializer, OrganizationRegisterSerializer, OrganizationUserDataSerializer
@@ -44,6 +44,7 @@ def send_code(request):
 def verify_code(request):
     phone_number = request.data.get('phone_number')
     code = request.data.get('code')
+    print(f"🔐 EMPLOYEE LOGIN - Current cookie: {request.COOKIES.get('session_id')}")
 
     if not all([phone_number, code]):
         return Response(
@@ -79,17 +80,9 @@ def verify_code(request):
     }
 
     response = Response(response_data)
-    response.set_cookie(
-        'session_id',
-        str(session.uuid),
-        httponly=settings.SESSION_COOKIE_HTTPONLY,
-        secure=settings.SESSION_COOKIE_SECURE,
-        samesite=settings.SESSION_COOKIE_SAMESITE,
-        max_age=settings.SESSION_COOKIE_AGE
-    )
-
+    response = set_session_cookie(response, str(session.uuid))
+    print(f"🍪 EMPLOYEE LOGIN - Setting new cookie: {session.uuid}")
     return response
-
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedUserData])
@@ -167,14 +160,8 @@ def guest_login(request):
         'expires_at': session.expires_at
     })
 
-    response.set_cookie(
-        'session_id',
-        str(session.uuid),
-        httponly=settings.SESSION_COOKIE_HTTPONLY,
-        secure=settings.SESSION_COOKIE_SECURE,
-        samesite=settings.SESSION_COOKIE_SAMESITE,
-        max_age=settings.SESSION_COOKIE_AGE
-    )
+    response = set_session_cookie(response, str(session.uuid))
+    print(f"🍪 GUEST LOGIN - Setting new cookie: {session.uuid}")
 
     return response
 
@@ -209,15 +196,7 @@ def organization_register(request):
         }
 
         response = Response(response_data)
-        response.set_cookie(
-            'session_id',
-            str(session.uuid),
-            httponly=settings.SESSION_COOKIE_HTTPONLY,
-            secure=settings.SESSION_COOKIE_SECURE,
-            samesite=settings.SESSION_COOKIE_SAMESITE,
-            max_age=settings.SESSION_COOKIE_AGE
-        )
-
+        response = set_session_cookie(response, str(session.uuid))
         return response
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -228,6 +207,7 @@ def organization_register(request):
 def organization_login(request):
     """Organization login using username and password"""
     serializer = OrganizationLoginSerializer(data=request.data)
+    print(f"🔐 ORGANIZATION LOGIN - Current cookie: {request.COOKIES.get('session_id')}")
     if serializer.is_valid():
         organization = OrganizationService.authenticate_organization(
             serializer.validated_data['login'],
@@ -252,15 +232,8 @@ def organization_login(request):
             }
 
             response = Response(response_data)
-            response.set_cookie(
-                'session_id',
-                str(session.uuid),
-                httponly=settings.SESSION_COOKIE_HTTPONLY,
-                secure=settings.SESSION_COOKIE_SECURE,
-                samesite=settings.SESSION_COOKIE_SAMESITE,
-                max_age=settings.SESSION_COOKIE_AGE
-            )
-
+            response = set_session_cookie(response, str(session.uuid))
+            print(f"🍪 ORGANIZATION LOGIN - Setting new cookie: {session.uuid}")
             return response
 
         return Response(
@@ -377,3 +350,14 @@ def organization_profile(request):
     }
 
     return Response(data)
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def debug_cookies(request):
+    """Endpoint for debugging cookies"""
+    cookies = {
+        'session_id_from_cookie': request.COOKIES.get('session_id'),
+        'all_cookies': dict(request.COOKIES),
+        'headers': dict(request.headers)
+    }
+    return Response(cookies)
