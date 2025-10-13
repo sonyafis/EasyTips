@@ -87,34 +87,57 @@ def create_guest_tip_payment(request):
     if not serializer.is_valid():
         return Response({'error': serializer.errors}, status=400)
 
+    # try:
+    #     employee_id = serializer.validated_data['employee_id']
+    #     amount = serializer.validated_data['amount']
+    #     employee_rating = serializer.validated_data.get('employee_rating')
+    #     comment = serializer.validated_data.get('comment')
+    #     guest_session_id = serializer.validated_data.get('guest_session_id')
+
+    #     result = PaymentService.create_guest_tip_payment(
+    #         employee_uuid=employee_id,
+    #         amount=amount,
+    #         employee_rating=employee_rating,
+    #         comment=comment,
+    #         guest_session_id=guest_session_id
+    #     )
+
+    #     response_serializer = CheckoutSessionResponseSerializer({
+    #         'session_id': result['session_id'],
+    #         'url': result['url'],
+    #         'transaction_id': result['transaction_id']
+    #     })
+
+    #     return Response({
+    #         'success': True,
+    #         'checkout_data': response_serializer.data
+    #     })
+
+    # except Exception as e:
+    #     return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
-        employee_id = serializer.validated_data['employee_id']
-        amount = serializer.validated_data['amount']
-        employee_rating = serializer.validated_data.get('employee_rating')
-        comment = serializer.validated_data.get('comment')
-        guest_session_id = serializer.validated_data.get('guest_session_id')
-
-        result = PaymentService.create_guest_tip_payment(
-            employee_uuid=employee_id,
-            amount=amount,
-            employee_rating=employee_rating,
-            comment=comment,
-            guest_session_id=guest_session_id
+        transaction = PaymentService.process_tip_payment(
+            user=request.user,
+            amount=serializer.validated_data['amount'],
+            employee_rating = serializer.validated_data.get('employee_rating'),
+            comment = serializer.validated_data.get('comment')
         )
-
-        response_serializer = CheckoutSessionResponseSerializer({
-            'session_id': result['session_id'],
-            'url': result['url'],
-            'transaction_id': result['transaction_id']
-        })
 
         return Response({
             'success': True,
-            'checkout_data': response_serializer.data
+            'transaction_id': str(transaction.id),
+            'new_balance': float(request.user.balance),
+            'message': 'Tips request sent',
+            'checkout_data':
+            {
+                'url': f"{settings.FRONTEND_URL}/payment/success?"
+            }
         })
-
+    except ValueError as e:
+        return Response({'error': str(e)}, status=400)
     except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Error while processing tips'}, status=500)
 
 
 @api_view(['POST'])
@@ -245,12 +268,30 @@ def get_employee_info(request, employee_uuid):
 @permission_classes([IsAuthenticatedUserData])
 def transaction_history(request):
     """Transaction history"""
+    
+    trans_type = request.query_params.get('type')
+    transactions = []
+
+    if trans_type == None:
+        trans_type = 'payout'
+    
     if request.user.user_type == 'employee':
-        transactions = request.user.received_tips.all().order_by('-created_at')[:50]
+        if trans_type == 'payout':
+            transactions = request.user.transactions.filter(transaction_type='payout').all().order_by('-created_at')[:50]
+        elif trans_type == 'tips':
+            transactions = request.user.received_tips.all().order_by('-created_at')[:50]
+            pass
     else:
         transactions = request.user.transactions.all().order_by('-created_at')[:50]
 
+    # transactions = request.user.received_tips.all().union(request.user.transactions.all()).order_by('-created_at')[:50]
+
     serializer = TransactionSerializer(transactions, many=True)
+
+    # if not serializer.is_valid():
+    #     print('aaa')
+    #     pass
+
     return Response({
         'transactions': serializer.data,
         'total_count': transactions.count()

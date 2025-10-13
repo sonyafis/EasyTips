@@ -14,7 +14,7 @@ class TransactionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'transaction_type', 'transaction_type_display', 'amount',
             'status', 'employee_rating', 'comment', 'payment_method',
-            'created_at', 'created_at_formatted'
+            'created_at', 'created_at_formatted',
             'created_at', 'created_at_formatted', 'employee_name', 'guest_session_id']
 
     def get_created_at_formatted(self, obj):
@@ -22,6 +22,12 @@ class TransactionSerializer(serializers.ModelSerializer):
 
     def get_transaction_type_display(self, obj):
         return dict(Transaction.TRANSACTION_TYPES).get(obj.transaction_type, obj.transaction_type)
+    
+    def get_employee_name(self, obj):
+        # adjust logic depending on your model relationships
+        if hasattr(obj, "employee") and obj.employee:
+            return obj.employee.name
+        return None
 
 class TipPaymentSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('1.00'))
