@@ -28,6 +28,7 @@ class Transaction(models.Model):
     stripe_payment_intent_id = models.CharField(max_length=255, blank=True, null=True)
     stripe_transfer_id = models.CharField(max_length=255, blank=True, null=True)
     stripe_charge_id = models.CharField(max_length=255, blank=True, null=True)
+    stripe_checkout_session_id = models.CharField(max_length=255, blank=True, null=True)
     guest_session_id = models.CharField(max_length=255, blank=True, null=True)
     employee = models.ForeignKey(
         UserData,

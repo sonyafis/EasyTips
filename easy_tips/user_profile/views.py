@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db.models import Count, Sum, Q
 from django.db.models.functions import TruncMonth
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
@@ -21,7 +22,7 @@ from .serializers import (
     TransactionSerializer,
     EmployeeQRCodeSerializer,
     CheckoutSessionResponseSerializer,
-    GuestTipPaymentSerializer
+    GuestTipPaymentSerializer, OrganizationStatisticsSerializer
 )
 from .stripe_service import StripeService
 
@@ -146,25 +147,82 @@ def stripe_webhook(request):
     try:
         event = StripeService.verify_webhook_signature(payload, sig_header)
     except Exception as e:
+        print(f"❌ Webhook verification failed: {str(e)}")
         return Response({'error': str(e)}, status=400)
 
     if event['type'] == 'payment_intent.succeeded':
         payment_intent = event['data']['object']
-        PaymentService.confirm_tip_payment(payment_intent['id'])
+
+        transaction = PaymentService.confirm_tip_payment(payment_intent['id'])
+        if transaction:
+            print(f"✅ Transaction {transaction.id} confirmed successfully")
+        else:
+            print(f"❌ Failed to confirm transaction for payment intent {payment_intent['id']}")
 
     elif event['type'] == 'checkout.session.completed':
         session = event['data']['object']
-        if session.payment_intent:
-            PaymentService.confirm_tip_payment(session.payment_intent)
+
+        try:
+            transaction = Transaction.objects.get(stripe_checkout_session_id=session['id'])
+            print(f"📄 Found transaction by checkout_session_id: {transaction.id}")
+
+            if session.get('payment_intent'):
+                transaction.stripe_payment_intent_id = session['payment_intent']
+                transaction.save(update_fields=['stripe_payment_intent_id'])
+                print(f"📝 Updated transaction {transaction.id} with payment_intent: {session['payment_intent']}")
+
+            transaction = PaymentService.confirm_tip_payment(session['payment_intent'])
+            if transaction:
+                print(f"✅ Transaction {transaction.id} confirmed from session")
+            else:
+                print(f"❌ Failed to confirm transaction from session {session['id']}")
+
+        except Transaction.DoesNotExist:
+            print(f"❌ Transaction not found for checkout_session_id {session['id']}")
+            metadata = session.get('metadata', {})
+            transaction_id = metadata.get('transaction_id')
+            if transaction_id:
+                try:
+                    transaction = Transaction.objects.get(id=transaction_id)
+                    print(f"📄 Found transaction by metadata transaction_id: {transaction.id}")
+
+                    transaction.stripe_checkout_session_id = session['id']
+                    if session.get('payment_intent'):
+                        transaction.stripe_payment_intent_id = session['payment_intent']
+                    transaction.save()
+
+                    if session.get('payment_intent'):
+                        transaction = PaymentService.confirm_tip_payment(session['payment_intent'])
+                        if transaction:
+                            print(f"✅ Transaction {transaction.id} confirmed from metadata")
+
+                except Transaction.DoesNotExist:
+                    print(f"❌ Transaction not found by metadata either: {transaction_id}")
+
+    elif event['type'] == 'charge.succeeded':
+        charge = event['data']['object']
+
+        if charge.get('payment_intent'):
+            transaction = PaymentService.confirm_tip_payment(charge['payment_intent'])
+            if transaction:
+                print(f"✅ Transaction {transaction.id} confirmed from charge")
+            else:
+                print(f"❌ Failed to confirm transaction from charge {charge['id']}")
 
     elif event['type'] == 'payment_intent.payment_failed':
         payment_intent = event['data']['object']
+        print(f"❌ Payment failed: {payment_intent['id']}")
+
         try:
             transaction = Transaction.objects.get(stripe_payment_intent_id=payment_intent['id'])
             transaction.status = 'failed'
             transaction.save(update_fields=['status'])
+            print(f"📝 Transaction {transaction.id} marked as failed")
         except Transaction.DoesNotExist:
-            pass
+            print(f"⚠️ Transaction not found for failed payment intent {payment_intent['id']}")
+
+    else:
+        print(f"ℹ️ Unhandled event type: {event['type']}")
 
     return Response({'success': True})
 
@@ -294,3 +352,43 @@ def transaction_statistics(request):
             'monthly_stats': list(monthly_stats)
         }
     })
+
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+@api_view(['GET'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticatedUserData])
+def organization_statistics(request):
+    """Статистика для организации"""
+    logger.info(f"Organization statistics requested by user: {request.user.uuid}, type: {request.user.user_type}")
+
+    if request.user.user_type != 'organization':
+        logger.warning(f"User {request.user.uuid} is not an organization")
+        return Response(
+            {'error': 'Only organizations can access this endpoint'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        logger.info(f"Getting statistics for organization: {request.user.uuid}")
+        statistics = PaymentService.get_organization_statistics(str(request.user.uuid))
+        logger.info(f"Statistics retrieved successfully: {statistics}")
+
+        return Response({
+            'success': True,
+            'statistics': statistics
+        })
+
+    except ValidationError as e:
+        logger.error(f"Validation error in organization statistics: {str(e)}")
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"Unexpected error in organization statistics: {str(e)}", exc_info=True)
+        return Response(
+            {'error': 'Error retrieving organization statistics'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
