@@ -376,3 +376,23 @@ def organization_employees(request):
         'employees': serializer.data,
         'count': employees.count()
     })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def organization_profile(request):
+    """Obtaining organization profile data"""
+    user = request.user
+
+    if user.user_type != 'organization':
+        return Response(
+            {'error': 'Only organizations can access this endpoint'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    data = {
+        "name": user.name or "",
+        "description": user.description or "",
+        "avatar_url": user.avatar_url or None,
+    }
+
+    return Response(data)
