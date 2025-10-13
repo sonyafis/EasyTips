@@ -266,18 +266,23 @@ def organization_login(request):
             response_data = {
                 'session_id': str(session.uuid),
                 'user_data': user_data_serializer.data,
-                'profile_complete': organization.is_profile_complete,
+                'profile_complete': True,
                 'message': 'Login successful'
             }
 
             response = Response(response_data)
+            response.delete_cookie(
+                    key='session_id',  # the name of the cookie
+                    path='/',           # must match the path used when setting it
+                    domain=None )
             response.set_cookie(
                 'session_id',
                 str(session.uuid),
-                httponly=settings.SESSION_COOKIE_HTTPONLY,
-                secure=settings.SESSION_COOKIE_SECURE,
+                httponly=True,
+                secure=False,
                 samesite=settings.SESSION_COOKIE_SAMESITE,
-                max_age=settings.SESSION_COOKIE_AGE
+                max_age=settings.SESSION_COOKIE_AGE,
+                # path='/'
             )
 
             return response
@@ -294,6 +299,9 @@ def organization_login(request):
 @permission_classes([IsAuthenticated])
 def organization_complete_profile(request):
     """Filling out an organization profile after registration/login"""
+
+    session_id = request.COOKIES.get('session_id')
+
     if request.user.user_type != 'organization':
         return Response(
             {'error': 'Only organizations can access this endpoint'},
