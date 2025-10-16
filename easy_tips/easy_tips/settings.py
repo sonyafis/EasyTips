@@ -180,9 +180,15 @@ SESSION_REFRESH_THRESHOLD = 60 * 15
 STRIPE_TEST_MODE = True
 STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', 'pk_test_51SDnMDHyBFLETxWaBIxoOc7biRTQFk8WxkL8MUZx5jpGpU4juUDydi3VXNXj3D5fQ3dLJktaPv1EVZrIbAZt6L4v00cTeXyY0Y')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
-STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', 'whsec_2A09eN4lrR5NFAs9gINGxuokKgMMd0sD')
 # Currency settings
 DEFAULT_CURRENCY = 'usd'
+
+if DEBUG:
+    # The Stripe CLI's Secret for Local Testing
+    STRIPE_WEBHOOK_SECRET = 'whsec_eaa38b9baeaa0972d8edbe87962390586f07ba2fa1673122e6529b54cad5143f'
+else:
+    # A secret from the Stripe production dashboard
+    STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', 'whsec_2A09eN4lrR5NFAs9gINGxuokKgMMd0sD')
 
 # CORS settings for React frontend
 

@@ -2,8 +2,11 @@ import qrcode
 import base64
 from io import BytesIO
 from django.conf import settings
-from urllib.parse import urlencode
+from django.db.models import Sum, Count
+from django.utils import timezone
+from datetime import datetime, timedelta
 from django.core.exceptions import ValidationError
+
 from .models import Transaction, UserData
 from .stripe_service import StripeService
 
@@ -46,12 +49,29 @@ class PaymentService:
         """Creates a tip payment from a guest to an employee"""
         try:
             employee = UserData.objects.get(uuid=employee_uuid, user_type='employee')
+            print(f"👨‍💼 Employee found: {employee.name}, balance: {employee.balance}")
         except UserData.DoesNotExist:
             raise ValidationError("Employee not found")
 
         # Create a Stripe customer for the employee if not exists
         if not employee.stripe_customer_id:
+            print(f"👤 Creating Stripe customer for employee {employee.name}")
             StripeService.create_customer(employee)
+
+        # Сначала создаем транзакцию с временным stripe_payment_intent_id = None
+        transaction = Transaction.objects.create(
+            user=employee,
+            transaction_type='tip',
+            amount=amount,
+            status='pending',
+            employee_rating=employee_rating,
+            comment=comment,
+            payment_method='card',
+            guest_session_id=guest_session_id,
+            employee=employee
+        )
+
+        print(f"📄 Transaction created: {transaction.id}")
 
         description = f"Tip for {employee.name}"
         if employee_rating:
@@ -59,8 +79,10 @@ class PaymentService:
         if comment:
             description += f" - {comment[:50]}..."
 
+        # Добавляем transaction_id в метаданные
         metadata = {
             'employee_uuid': str(employee.uuid),
+            'transaction_id': str(transaction.id),  # Важно: добавляем ID транзакции
             'transaction_type': 'tip',
             'employee_rating': str(employee_rating) if employee_rating else '',
             'comment': comment or '',
@@ -80,18 +102,13 @@ class PaymentService:
             cancel_url=cancel_url
         )
 
-        transaction = Transaction.objects.create(
-            user=employee,
-            transaction_type='tip',
-            amount=amount,
-            status='pending',
-            employee_rating=employee_rating,
-            comment=comment,
-            payment_method='card',
-            stripe_payment_intent_id=checkout_session['payment_intent_id'],
-            guest_session_id=guest_session_id,
-            employee=employee
-        )
+        print(f"🛒 Checkout session created: {checkout_session['session_id']}")
+        print(f"💳 Payment intent ID from session: {checkout_session['payment_intent_id']}")
+
+        # Обновляем транзакцию с checkout_session_id
+        transaction.stripe_checkout_session_id = checkout_session['session_id']
+        transaction.save(update_fields=['stripe_checkout_session_id'])
+        print(f"📝 Updated transaction with checkout_session_id: {checkout_session['session_id']}")
 
         return {
             'session_id': checkout_session['session_id'],
@@ -103,17 +120,35 @@ class PaymentService:
     @staticmethod
     def confirm_tip_payment(payment_intent_id):
         """Confirms a successful payment and updates the balance"""
-        try:
-            transaction = Transaction.objects.get(stripe_payment_intent_id=payment_intent_id)
-            transaction.status = 'completed'
-            transaction.save(update_fields=['status'])
+        print(f"🔍 Looking for transaction with payment_intent_id: {payment_intent_id}")
 
-            employee = transaction.employee
+        try:
+            # Сначала ищем по stripe_payment_intent_id
+            transaction = Transaction.objects.get(stripe_payment_intent_id=payment_intent_id)
+            print(f"📄 Found transaction by stripe_payment_intent_id: {transaction.id}")
+
+        except Transaction.DoesNotExist:
+            print(f"❌ Transaction not found by stripe_payment_intent_id: {payment_intent_id}")
+            return None
+
+        # Проверяем, не был ли платеж уже обработан
+        if transaction.status == 'completed':
+            print(f"⚠️ Payment already completed for transaction {transaction.id}")
+            return transaction
+
+        transaction.status = 'completed'
+        transaction.save(update_fields=['status'])
+        print(f"✅ Transaction {transaction.id} marked as completed")
+
+        employee = transaction.employee
+        if employee:
+            old_balance = employee.balance
             employee.balance += transaction.amount
             employee.save(update_fields=['balance'])
-
+            print(f"💰 Employee {employee.uuid} balance updated from {old_balance} to {employee.balance}")
             return transaction
-        except Transaction.DoesNotExist:
+        else:
+            print(f"❌ No employee found for transaction {transaction.id}")
             return None
 
     @staticmethod
@@ -177,3 +212,63 @@ class PaymentService:
     def get_employee_qr_code(employee_uuid: str):
         """Returns a QR code for the employee"""
         return PaymentService.generate_employee_qr_code(employee_uuid)
+
+    @staticmethod
+    def get_organization_statistics(organization_uuid: str):
+        try:
+            organization = UserData.objects.get(uuid=organization_uuid, user_type='organization')
+        except UserData.DoesNotExist:
+            raise ValidationError("Organization not found")
+
+        employees = UserData.objects.filter(organization=organization, user_type='employee')
+
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        eight_days_ago = timezone.now() - timedelta(days=30)
+
+        transactions = Transaction.objects.filter(
+            employee__in=employees,
+            transaction_type='tip',
+            status='completed',
+            created_at__gte=eight_days_ago
+        )
+
+        today_stats = transactions.filter(
+            created_at__range=(today_start, today_end)
+        ).aggregate(
+            total_amount=Sum('amount'),
+            transaction_count=Count('id')
+        )
+
+        weekly_trend = []
+        for i in range(1, 8):
+            date = timezone.now().date() - timedelta(days=i)
+            day_start = timezone.make_aware(datetime.combine(date, datetime.min.time()))
+            day_end = timezone.make_aware(datetime.combine(date, datetime.max.time()))
+
+            day_amount = transactions.filter(
+                created_at__range=(day_start, day_end)
+            ).aggregate(total=Sum('amount'))['total'] or 0
+
+            weekly_trend.append({
+                'date': date.isoformat(),
+                'amount': float(day_amount)
+            })
+
+        top_employees = transactions.filter(
+            created_at__range=(today_start, today_end)
+        ).values(
+            'employee__name', 'employee__uuid'
+        ).annotate(
+            total_tips=Sum('amount'),
+            transaction_count=Count('id')
+        ).order_by('-total_tips')[:5]
+
+        return {
+            'total_tips_today': float(today_stats['total_amount'] or 0),
+            'tip_transactions_today': today_stats['transaction_count'] or 0,
+            'weekly_tips_trend': weekly_trend,
+            'total_employees': employees.count(),
+            'top_employees_today': list(top_employees)
+        }

@@ -12,4 +12,5 @@ urlpatterns = [
     path('tips/history/', views.transaction_history, name='transaction_history'),
     path('tips/statistics/', views.transaction_statistics, name='transaction_statistics'),
     path('stripe/webhook/', views.stripe_webhook, name='stripe_webhook'),
+    path('organization/statistics/', views.organization_statistics, name='organization_statistics'),
 ]

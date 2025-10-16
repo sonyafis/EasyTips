@@ -81,3 +81,20 @@ class WithdrawSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('1.00'))
     withdraw_type = serializers.ChoiceField(choices=['phone', 'card'])
     details = serializers.JSONField()
+
+class WeeklyTipsTrendSerializer(serializers.Serializer):
+    date = serializers.CharField(help_text="Date in ISO format")
+    amount = serializers.FloatField(help_text="Total tips amount for the day")
+
+class TopEmployeeSerializer(serializers.Serializer):
+    employee__name = serializers.CharField(source='employee_name')
+    employee__uuid = serializers.UUIDField(source='employee_uuid')
+    total_tips = serializers.FloatField()
+    transaction_count = serializers.IntegerField()
+
+class OrganizationStatisticsSerializer(serializers.Serializer):
+    total_tips_today = serializers.FloatField(help_text="Total tips received today")
+    tip_transactions_today = serializers.IntegerField(help_text="Number of tip transactions today")
+    weekly_tips_trend = WeeklyTipsTrendSerializer(many=True, help_text="Weekly tips trend for past 7 days")
+    total_employees = serializers.IntegerField(help_text="Total number of employees")
+    top_employees_today = TopEmployeeSerializer(many=True, help_text="Top employees by tips today")
