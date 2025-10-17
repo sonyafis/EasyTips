@@ -118,8 +118,13 @@ def create_guest_tip_payment(request):
     #     return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
+
+        employee_id = serializer.validated_data['employee_id']
+        employee = UserData.objects.get(uuid=employee_id, user_type='employee')
+        print(f"👨‍💼 Employee found: {employee.name}, balance: {employee.balance}")
+
         transaction = PaymentService.process_tip_payment(
-            user=request.user,
+            user=employee,
             amount=serializer.validated_data['amount'],
             employee_rating = serializer.validated_data.get('employee_rating'),
             comment = serializer.validated_data.get('comment')
