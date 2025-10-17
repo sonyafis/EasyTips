@@ -14,13 +14,21 @@ class RefreshSessionMiddleware:
         response = self.get_response(request)
 
         session_id = request.COOKIES.get(settings.SESSION_COOKIE_NAME)
-        if not session_id:
-            return response
+        if session_id:
+            self.renew_session_cookie(session_id, response)
+
+        return response
+    
+    def renew_session_cookie(self, session_id, response):
+        cookie_value = response.cookies.get(settings.SESSION_COOKIE_NAME)
+
+        if cookie_value:
+            session_id = cookie_value.value
 
         try:
             session = Session.objects.get(uuid=session_id, is_active=True)
         except Session.DoesNotExist:
-            return response
+            return
 
         now = timezone.now()
         if session.expires_at > now:
@@ -38,4 +46,4 @@ class RefreshSessionMiddleware:
                 max_age=settings.SESSION_COOKIE_AGE
             )
 
-        return response
+        pass

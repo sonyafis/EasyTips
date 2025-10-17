@@ -153,6 +153,7 @@ def set_session_cookie(response, session_id):
         domain=None
     )
 
+    print(f'Set cookie: {session_id}')
     response.set_cookie(
         'session_id',
         session_id,
@@ -163,4 +164,5 @@ def set_session_cookie(response, session_id):
         path='/',
         domain=None
     )
+
     return response

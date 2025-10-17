@@ -170,7 +170,7 @@ SESSION_COOKIE_NAME = "session_id"
 
 SESSION_COOKIE_SECURE = False  # -> True on HTTPS/production
 
-SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = 'Lax'
 
 # how many seconds of remaining time should be considered "needing extension"?
 # if None, we'll extend it on every request (not recommended for heavily loaded systems)
