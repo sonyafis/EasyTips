@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -8,7 +9,6 @@ from .models import Session, UserData
 from .serializers import UserDataSerializer, AddEmployeeSerializer, OrganizationProfileSerializer, \
     OrganizationLoginSerializer, OrganizationRegisterSerializer, OrganizationUserDataSerializer
 from .permissions import IsAuthenticatedUserData
-from django.conf import settings
 import re
 
 PHONE_REGEX = re.compile(r'^\+?\d{10,15}$')
@@ -310,6 +310,7 @@ def add_employee(request):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def organization_employees(request):
@@ -325,9 +326,21 @@ def organization_employees(request):
         user_type='employee'
     )
 
-    serializer = UserDataSerializer(employees, many=True)
+    # Добавляем информацию об активных сессиях
+    employees_data = []
+    for employee in employees:
+        has_active_session = Session.objects.filter(
+            user_data=employee,
+            is_active=True,
+            expires_at__gt=timezone.now()
+        ).exists()
+
+        employee_data = UserDataSerializer(employee).data
+        employee_data['is_active'] = has_active_session
+        employees_data.append(employee_data)
+
     return Response({
-        'employees': serializer.data,
+        'employees': employees_data,
         'count': employees.count()
     })
 

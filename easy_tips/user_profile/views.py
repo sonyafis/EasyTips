@@ -363,7 +363,7 @@ logger = logging.getLogger(__name__)
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticatedUserData])
 def organization_statistics(request):
-    """Статистика для организации"""
+    """Statistics for the organization"""
     logger.info(f"Organization statistics requested by user: {request.user.uuid}, type: {request.user.user_type}")
 
     if request.user.user_type != 'organization':
@@ -373,10 +373,12 @@ def organization_statistics(request):
             status=status.HTTP_403_FORBIDDEN
         )
 
+    period = request.GET.get('period', 'week')
+
     try:
-        logger.info(f"Getting statistics for organization: {request.user.uuid}")
-        statistics = PaymentService.get_organization_statistics(str(request.user.uuid))
-        logger.info(f"Statistics retrieved successfully: {statistics}")
+        logger.info(f"Getting statistics for organization: {request.user.uuid}, period: {period}")
+        statistics = PaymentService.get_organization_statistics(str(request.user.uuid), period)
+        logger.info(f"Statistics retrieved successfully for period {period}")
 
         return Response({
             'success': True,

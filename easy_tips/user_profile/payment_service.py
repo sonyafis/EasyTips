@@ -213,25 +213,81 @@ class PaymentService:
         return PaymentService.generate_employee_qr_code(employee_uuid)
 
     @staticmethod
-    def get_organization_statistics(organization_uuid: str):
+    def get_organization_statistics(organization_uuid: str, period: str = 'week'):
+        from django.db.models import Sum
         try:
             organization = UserData.objects.get(uuid=organization_uuid, user_type='organization')
         except UserData.DoesNotExist:
             raise ValidationError("Organization not found")
 
         employees = UserData.objects.filter(organization=organization, user_type='employee')
+        now = timezone.now()
 
-        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_end = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+        if period == 'all':
+            from django.db.models import Sum
+            employee_stats = []
 
-        eight_days_ago = timezone.now() - timedelta(days=30)
+            for employee in employees:
+                total_tips = Transaction.objects.filter(
+                    employee=employee,
+                    transaction_type='tip',
+                    status='completed'
+                ).aggregate(total=Sum('amount'))['total'] or 0
+
+                employee_stats.append({
+                    'employee__name': employee.name,
+                    'employee__uuid': str(employee.uuid),
+                    'total_tips': float(total_tips),
+                    'transaction_count': Transaction.objects.filter(
+                        employee=employee,
+                        transaction_type='tip',
+                        status='completed'
+                    ).count()
+                })
+
+            employee_stats.sort(key=lambda x: x['total_tips'], reverse=True)
+            top_employees = employee_stats[:5]
+
+            total_all_time = sum(emp['total_tips'] for emp in employee_stats)
+
+            return {
+                'period': period,
+                'total_tips_period': total_all_time,
+                'tip_transactions_period': sum(emp['transaction_count'] for emp in employee_stats),
+                'total_tips_today': 0,
+                'tip_transactions_today': 0,
+                'weekly_tips_trend': [{'date': now.date().isoformat(), 'amount': total_all_time}],
+                'total_employees': employees.count(),
+                'top_employees': top_employees
+            }
+
+        if period == '24h':
+            start_date = now - timedelta(hours=24)
+        elif period == 'yesterday':
+            yesterday = now - timedelta(days=1)
+            start_date = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+        elif period == 'week':
+            start_date = now - timedelta(days=7)
+        elif period == 'month':
+            start_date = now - timedelta(days=30)
+        else:
+            start_date = now - timedelta(days=7)
 
         transactions = Transaction.objects.filter(
             employee__in=employees,
             transaction_type='tip',
-            status='completed',
-            created_at__gte=eight_days_ago
+            status='completed'
         )
+
+        if start_date:
+            if period == 'yesterday':
+                transactions = transactions.filter(created_at__range=(start_date, end_date))
+            else:
+                transactions = transactions.filter(created_at__gte=start_date)
+
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
 
         today_stats = transactions.filter(
             created_at__range=(today_start, today_end)
@@ -241,33 +297,52 @@ class PaymentService:
         )
 
         weekly_trend = []
-        for i in range(1, 8):
-            date = timezone.now().date() - timedelta(days=i)
-            day_start = timezone.make_aware(datetime.combine(date, datetime.min.time()))
-            day_end = timezone.make_aware(datetime.combine(date, datetime.max.time()))
+        if period == 'week':
+            for i in range(6, -1, -1):
+                date = now.date() - timedelta(days=i)
+                day_start = timezone.make_aware(datetime.combine(date, datetime.min.time()))
+                day_end = timezone.make_aware(datetime.combine(date, datetime.max.time()))
 
-            day_amount = transactions.filter(
-                created_at__range=(day_start, day_end)
-            ).aggregate(total=Sum('amount'))['total'] or 0
+                day_amount = transactions.filter(
+                    created_at__range=(day_start, day_end)
+                ).aggregate(total=Sum('amount'))['total'] or 0
 
-            weekly_trend.append({
-                'date': date.isoformat(),
-                'amount': float(day_amount)
-            })
+                weekly_trend.append({
+                    'date': date.isoformat(),
+                    'amount': float(day_amount)
+                })
+        else:
+            period_amount = transactions.aggregate(total=Sum('amount'))['total'] or 0
+            weekly_trend = [{'date': now.date().isoformat(), 'amount': float(period_amount)}]
 
-        top_employees = transactions.filter(
-            created_at__range=(today_start, today_end)
-        ).values(
+        top_employees_query = transactions.values(
             'employee__name', 'employee__uuid'
         ).annotate(
             total_tips=Sum('amount'),
             transaction_count=Count('id')
         ).order_by('-total_tips')[:5]
 
+        top_employees = []
+        for emp in top_employees_query:
+            top_employees.append({
+                'employee__name': emp['employee__name'],
+                'employee__uuid': emp['employee__uuid'],
+                'total_tips': float(emp['total_tips'] or 0),
+                'transaction_count': emp['transaction_count']
+            })
+
+        period_stats = transactions.aggregate(
+            total_amount=Sum('amount'),
+            transaction_count=Count('id')
+        )
+
         return {
+            'period': period,
+            'total_tips_period': float(period_stats['total_amount'] or 0),
+            'tip_transactions_period': period_stats['transaction_count'] or 0,
             'total_tips_today': float(today_stats['total_amount'] or 0),
             'tip_transactions_today': today_stats['transaction_count'] or 0,
             'weekly_tips_trend': weekly_trend,
             'total_employees': employees.count(),
-            'top_employees_today': list(top_employees)
+            'top_employees': top_employees
         }
