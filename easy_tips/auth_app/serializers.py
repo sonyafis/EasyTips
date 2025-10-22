@@ -53,14 +53,17 @@ class UserDataSerializer(serializers.ModelSerializer):
         if not validated_data.get("name"):
             validated_data["name"] = generate_random_name()
 
+        had_avatar_before = bool(instance.avatar_url)
         instance = super().update(instance, validated_data)
-
         instance.is_profile_complete = instance.check_profile_complete()
-        if not instance.avatar_url:
-            instance.avatar_url = generate_avatar_url()
+
+        has_new_avatar = bool(validated_data.get("avatar_url"))
+        if not had_avatar_before and not has_new_avatar:
+            instance.avatar_url = generate_avatar_url(seed=str(instance.uuid))
             instance.save(update_fields=["avatar_url"])
 
         return instance
+
 
 class OrganizationUserDataSerializer(serializers.ModelSerializer):
     class Meta:
@@ -115,24 +118,41 @@ class OrganizationLoginSerializer(serializers.Serializer):
 
 
 class OrganizationProfileSerializer(serializers.ModelSerializer):
+    avatar_link = serializers.ReadOnlyField()
+
     class Meta:
         model = UserData
-        fields = ['name', 'description']
+        fields = ["name", "description", "avatar", "avatar_url", "avatar_link"]
 
     def validate_name(self, value):
         if len(value.strip()) < 2:
             raise serializers.ValidationError("The name must contain at least 2 characters.")
         return value
 
-    def update(self, instance, validated_data):
-        if not validated_data.get('avatar_url'):
-            validated_data['avatar_url'] = generate_avatar_url()
+    def get_avatar_link(self, obj):
+        # Возвращаем URL загруженного файла если есть, иначе avatar_url
+        if obj.avatar and hasattr(obj.avatar, 'url'):
+            return obj.avatar.url
+        return obj.avatar_url
 
+    def update(self, instance, validated_data):
+        # Если загружается новый файл аватарки, очищаем avatar_url
+        if 'avatar' in validated_data and validated_data['avatar']:
+            instance.avatar_url = None
+            # Сохраняем сразу, чтобы avatar_url обновился
+            instance.save(update_fields=["avatar_url"])
+
+        # Обновляем остальные поля
         instance = super().update(instance, validated_data)
 
+        # Генерируем аватарку ТОЛЬКО если нет ни avatar, ни avatar_url
+        if not instance.avatar and not instance.avatar_url:
+            instance.avatar_url = generate_avatar_url(seed=str(instance.uuid))
+            instance.save(update_fields=["avatar_url"])
+
+        # Проверяем заполненность профиля
         has_name = bool(instance.name and instance.name.strip())
         has_description = bool(instance.description and instance.description.strip())
-
         instance.is_profile_complete = has_name and has_description
         instance.save(update_fields=['is_profile_complete'])
 
@@ -151,12 +171,11 @@ class AddEmployeeSerializer(serializers.Serializer):
                 "Please enter a valid phone number (9 to 15 digits, including '+')."
             )
 
-        # We check whether the number is already an employee of this organization.
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
             if UserData.objects.filter(
-                    phone_number=value,
-                    organization=request.user
+                phone_number=value,
+                organization=request.user
             ).exists():
                 raise serializers.ValidationError("This number has already been added as an employee.")
 

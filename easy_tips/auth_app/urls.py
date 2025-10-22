@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.urls import path
 from . import views
 
@@ -16,7 +17,7 @@ urlpatterns = [
     path('organization/login/', views.organization_login, name='organization_login'),
     path('organization/complete-profile/', views.organization_complete_profile, name='organization_complete_profile'),
     path('organization/profile/', views.organization_profile, name='organization_profile'),
+    path("organization/profile-update/", views.organization_update_profile, name="organization-update-profile"),
     path('organization/add-employee/', views.add_employee, name='add_employee'),
     path('organization/employees/', views.organization_employees, name='organization_employees'),
-    path('debug/cookies/', views.debug_cookies, name='debug_cookies'),
 ]

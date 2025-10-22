@@ -11,6 +11,8 @@ from .serializers import UserDataSerializer, AddEmployeeSerializer, Organization
 from .permissions import IsAuthenticatedUserData
 import re
 
+from .utils import generate_avatar_url
+
 PHONE_REGEX = re.compile(r'^\+?\d{10,15}$')
 
 @api_view(['POST'])
@@ -184,6 +186,10 @@ def organization_register(request):
     if serializer.is_valid():
         organization = serializer.save()
 
+        if not organization.avatar_url:
+            organization.avatar_url = generate_avatar_url(seed=str(organization.uuid))
+            organization.save(update_fields=["avatar_url"])
+
         session = AuthService.create_organization_session(organization)
 
         user_data_serializer = OrganizationUserDataSerializer(organization)
@@ -201,7 +207,6 @@ def organization_register(request):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def organization_login(request):
@@ -215,6 +220,10 @@ def organization_login(request):
         )
 
         if organization:
+            if not organization.avatar_url:
+                organization.avatar_url = generate_avatar_url(seed=str(organization.uuid))
+                organization.save(update_fields=["avatar_url"])
+
             session = AuthService.create_organization_session(organization)
 
             user_data_serializer = OrganizationUserDataSerializer(organization)
@@ -326,7 +335,6 @@ def organization_employees(request):
         user_type='employee'
     )
 
-    # Добавляем информацию об активных сессиях
     employees_data = []
     for employee in employees:
         has_active_session = Session.objects.filter(
@@ -344,6 +352,7 @@ def organization_employees(request):
         'count': employees.count()
     })
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def organization_profile(request):
@@ -356,21 +365,26 @@ def organization_profile(request):
             status=status.HTTP_403_FORBIDDEN
         )
 
-    data = {
-        "name": user.name or "",
-        "description": user.description or "",
-        "avatar_url": user.avatar_url or None,
-    }
+    serializer = OrganizationProfileSerializer(user)
+    return Response(serializer.data)
 
-    return Response(data)
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def debug_cookies(request):
-    """Endpoint for debugging cookies"""
-    cookies = {
-        'session_id_from_cookie': request.COOKIES.get('session_id'),
-        'all_cookies': dict(request.COOKIES),
-        'headers': dict(request.headers)
-    }
-    return Response(cookies)
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def organization_update_profile(request):
+    user = request.user
+    if user.user_type != 'organization':
+        return Response({'error': 'Only organizations can update this endpoint'}, status=403)
+
+    serializer = OrganizationProfileSerializer(user, data=request.data, partial=True)
+    if serializer.is_valid():
+        organization = serializer.save()
+
+        return Response({
+            'success': True,
+            'profile_complete': organization.is_profile_complete,
+            'user_data': OrganizationProfileSerializer(organization).data,
+            'message': 'Profile updated successfully'
+        })
+    return Response(serializer.errors, status=400)
+
